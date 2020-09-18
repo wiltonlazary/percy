@@ -9,7 +9,13 @@ use syn::{Ident, Stmt};
 mod braced;
 mod close_tag;
 mod open_tag;
+mod statement;
 mod text;
+
+pub enum NodesToPush<'a> {
+    Stmt(&'a Stmt),
+    TokenStream(&'a Stmt, proc_macro2::TokenStream),
+}
 
 /// Used to parse [`Tag`]s that we've parsed and build a tree of `VirtualNode`s
 ///
@@ -68,9 +74,10 @@ impl HtmlParser {
                 name,
                 attrs,
                 closing_bracket_span,
+                is_self_closing,
                 ..
             } => {
-                self.parse_open_tag(name, closing_bracket_span, attrs);
+                self.parse_open_tag(name, closing_bracket_span, attrs, *is_self_closing);
                 self.last_tag_kind = Some(TagKind::Open);
             }
             Tag::Close { name, .. } => {
@@ -122,13 +129,15 @@ impl HtmlParser {
                         let unreachable = quote_spanned!(Span::call_site() => {
                             unreachable!("Non-elements cannot have children");
                         });
+
                         let push_children = quote! {
-                            if let Some(ref mut element_node) =  #parent_name.as_velement_mut() {
+                            if let Some(ref mut element_node) = #parent_name.as_velement_mut() {
                                 element_node.children.extend(#children.into_iter());
                             } else {
                                 #unreachable;
                             }
                         };
+
                         tokens.push(push_children);
                     }
                 }
@@ -207,14 +216,25 @@ impl HtmlParser {
     ///
     /// html! { <div> { some_var_in_braces } </div>
     /// html! { <div> { some_other_variable } </div>
-    fn push_iterable_nodes(&mut self, stmt: &Stmt) {
+    fn push_iterable_nodes(&mut self, nodes: NodesToPush) {
         let node_idx = self.current_node_idx;
-        let node_ident = self.new_virtual_node_ident(stmt.span());
 
-        let nodes = quote! {
-            let mut #node_ident: IterableNodes = #stmt.into();
-        };
-        self.push_tokens(nodes);
+        match nodes {
+            NodesToPush::Stmt(stmt) => {
+                let node_ident = self.new_virtual_node_ident(stmt.span());
+
+                self.push_tokens(quote! {
+                    let mut #node_ident: IterableNodes = #stmt.into();
+                });
+            }
+            NodesToPush::TokenStream(stmt, tokens) => {
+                let node_ident = self.new_virtual_node_ident(stmt.span());
+
+                self.push_tokens(quote! {
+                    let mut #node_ident: IterableNodes = #tokens.into();
+                });
+            }
+        }
 
         let parent_idx = *&self.parent_stack[self.parent_stack.len() - 1].0;
 
@@ -243,4 +263,8 @@ struct RecentSpanLocations {
 
 fn is_self_closing(tag: &str) -> bool {
     html_validation::is_self_closing(tag)
+}
+
+fn is_valid_tag(tag: &str) -> bool {
+    html_validation::is_valid_tag(tag)
 }

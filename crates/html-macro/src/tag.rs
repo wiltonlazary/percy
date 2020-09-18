@@ -16,6 +16,7 @@ pub enum Tag {
         attrs: Vec<Attr>,
         open_bracket_span: Span,
         closing_bracket_span: Span,
+        is_self_closing: bool,
     },
     /// </div>
     Close {
@@ -108,8 +109,8 @@ fn parse_open_tag(input: &mut ParseStream, open_bracket_span: Span) -> Result<Ta
 
     let attrs = parse_attributes(input)?;
 
-    let _maybe_trailing_slash: Option<Token![/]> = input.parse()?;
-    //    let has_trailing_slash = has_trailing_slash.is_some();
+    let is_self_closing: Option<Token![/]> = input.parse()?;
+    let is_self_closing = is_self_closing.is_some();
 
     let closing_bracket = input.parse::<Token![>]>()?;
     let closing_bracket_span = closing_bracket.span();
@@ -119,6 +120,7 @@ fn parse_open_tag(input: &mut ParseStream, open_bracket_span: Span) -> Result<Ta
         attrs,
         open_bracket_span,
         closing_bracket_span,
+        is_self_closing
     })
 }
 
@@ -132,12 +134,26 @@ fn parse_attributes(input: &mut ParseStream) -> Result<Vec<Attr>> {
     let mut attrs = Vec::new();
 
     // Do we see an identifier such as `id`? If so proceed
-    while input.peek(Ident) || input.peek(Token![type]) {
+    while input.peek(Ident)
+        || input.peek(Token![async])
+        || input.peek(Token![for])
+        || input.peek(Token![loop])
+        || input.peek(Token![type])
+    {
         // <link rel="stylesheet" type="text/css"
-        //   .. type needs to be handled specially since it's a keyword
+        //   .. async, for, loop, type need to be handled specially since they are keywords
+        let maybe_async_key: Option<Token![async]> = input.parse()?;
+        let maybe_for_key: Option<Token![for]> = input.parse()?;
+        let maybe_loop_key: Option<Token![loop]> = input.parse()?;
         let maybe_type_key: Option<Token![type]> = input.parse()?;
 
-        let key = if maybe_type_key.is_some() {
+        let key = if maybe_async_key.is_some() {
+            Ident::new("async", maybe_async_key.unwrap().span())
+        } else if maybe_for_key.is_some() {
+            Ident::new("for", maybe_for_key.unwrap().span())
+        } else if maybe_loop_key.is_some() {
+            Ident::new("loop", maybe_loop_key.unwrap().span())
+        } else if maybe_type_key.is_some() {
             Ident::new("type", maybe_type_key.unwrap().span())
         } else {
             input.parse()?
@@ -153,7 +169,11 @@ fn parse_attributes(input: &mut ParseStream) -> Result<Vec<Attr>> {
             let tt: TokenTree = input.parse()?;
             value_tokens.extend(Some(tt));
 
-            let has_attrib_key = input.peek(Ident) || input.peek(Token![type]);
+            let has_attrib_key = input.peek(Ident)
+                || input.peek(Token![async])
+                || input.peek(Token![for])
+                || input.peek(Token![loop])
+                || input.peek(Token![type]);
             let peek_start_of_next_attr = has_attrib_key && input.peek2(Token![=]);
 
             let peek_end_of_tag = input.peek(Token![>]);
@@ -246,11 +266,23 @@ fn parse_text_node(input: &mut ParseStream) -> Result<Tag> {
 
                 let spans_on_different_lines = current_span_start.line != most_recent_span_end.line;
 
+                // Contraptions such as "Aren't" give the "'" and the "t" the
+                // same span, even though they get parsed separately when calling
+                // input.parse::<TokenTree>().
+                // As in - it takes two input.parse calls to get the "'" and "t",
+                // even though they have the same span.
+                // This might be a bug in syn - but regardless we address this by
+                // not inserting a space in this case.
+                let span_comes_before_previous_span = current_span_start.column
+                    < most_recent_span_end.column
+                    && !spans_on_different_lines;
+
                 // Spans are on different lines, insert space
                 if spans_on_different_lines {
                     text += " ";
-                    break;
-                } else if current_span_start.column - most_recent_span_end.column > 0 {
+                } else if !span_comes_before_previous_span
+                    && current_span_start.column - most_recent_span_end.column > 0
+                {
                     text += " ";
                 }
             }

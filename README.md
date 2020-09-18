@@ -1,35 +1,42 @@
 Percy
 =====
 
+[![Actions Status](https://github.com/chinedufn/percy/workflows/percy-build-test/badge.svg)](https://github.com/chinedufn/percy/actions)
 [![Build status](https://circleci.com/gh/chinedufn/percy.svg?style=shield&circle-token=:circle-token)](https://circleci.com/gh/chinedufn/percy)
 
-> A modular toolkit for building interactive frontend browser apps with Rust + WebAssembly. Supports server side rendering.
+> Libraries for building interactive frontend browser apps with Rust + WebAssembly. Supports server side rendering.
+
+Percy is collection of tools geared towards building single page web apps entirely in Rust that can also be rendered at the server.
+
+This allows you to build search engine friendly browser applications in Rust.
 
 ## [The Percy Book](https://chinedufn.github.io/percy/)
 
+Information about all of the libraries and tools can be found in the Percy book.
+
+This README serves as a light introduction - consult the book for a full walk through.
+
 [The Percy Book](https://chinedufn.github.io/percy/)
 
----
+## How does it work?
 
-## What is an isomorphic web app?
+Well, that depends on the library in question.
 
-An isomorphic web application allows the same application code (in our case Rust code) to be run on both the server-side and the client-side (usually a web browser).
+At a high level you:
+
+1. Server your application from a server (optional)
+
+2. User loads the page
+
+3. Page downloads your application compiled to WebAssembly
+
+4. Page picks up where the server left off by reading state from the window
 
 So the server would render the application into a `String` of HTML and send that down to the client.
 
 Then the client would take over, re-rendering the application to a DOM `Node` whenever application state changes.
 
 In a browser our application renders to an `HtmlElement`, and on the server our application renders to a `String`.
-
-## API Documentation
-
-- [virtual-dom-rs API docs](https://chinedufn.github.io/percy/api/virtual_dom_rs/macro.html.html)
-
-- [html-macro API docs](https://chinedufn.github.io/percy/api/html_rs_macro)
-
-- [router-rs API docs](https://chinedufn.github.io/percy/api/router_rs)
-
-- [css-rs-macro API docs](https://chinedufn.github.io/percy/api/css_rs_macro)
 
 ## Getting Started
 
@@ -166,7 +173,7 @@ static _MORE_CSS: &'static str = css!{r#"
 # contents of Cargo.toml
 
 [package]
-name = "browser"
+name = "client-side-web-app"
 version = "0.1.0"
 authors = ["Friends of Percy"]
 edition = "2018"
@@ -201,9 +208,9 @@ features = [
         <title>Client Side Demo</title>
     </head>
     <body style='margin: 0; padding: 0; width: 100%; height: 100%;'>
-        <script src='/browser.js'></script>
+        <script src='/client_side_web_app.js'></script>
         <script>
-            window.wasm_bindgen(`/browser_bg.wasm`).then(() => {
+            window.wasm_bindgen(`/client_side_web_app_bg.wasm`).then(() => {
                 const { App } = window.wasm_bindgen
                 new App()
             })
@@ -243,6 +250,16 @@ Nice work!
 - [Unit Testing View Components](examples/unit-testing-components)
 
 - [Open an Issue or PR if you have an idea for a useful example!](https://github.com/chinedufn/percy/issues)
+
+## API Documentation
+
+- [virtual-dom-rs API docs](https://chinedufn.github.io/percy/api/virtual_dom_rs/macro.html.html)
+
+- [html-macro API docs](https://chinedufn.github.io/percy/api/html_macro)
+
+- [router-rs API docs](https://chinedufn.github.io/percy/api/router_rs)
+
+- [css-rs-macro API docs](https://chinedufn.github.io/percy/api/css_rs_macro)
 
 ## Contributing
 

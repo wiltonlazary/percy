@@ -1,6 +1,6 @@
 //! A collection of functions that are useful for unit testing your html! views.
 
-use crate::{VElement, VirtualNode};
+use crate::VirtualNode;
 
 impl VirtualNode {
     /// Get a vector of all of the VirtualNode children / grandchildren / etc of
@@ -91,6 +91,7 @@ fn get_descendants<'a>(descendants: &mut Vec<&'a VirtualNode>, node: &'a Virtual
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::VElement;
     use std::collections::HashMap;
 
     // TODO: Move this test somewhere that we can use the `html!` macro
